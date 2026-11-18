@@ -1,5 +1,7 @@
 # AE 2027 中文乱码修复器 · AE27 Charset Fixer
 
+**简体中文** · [English](README.en.md)
+
 > 让 After Effects **2027** 里红巨星（Maxon / Trapcode）效果的中文参数名，恢复成和 **AE 2026** 一模一样。
 
 产物只有一个文件：**`dist/!00_AE27CharsetFixer.aex`**。拷进 AE 27 的 `Plug-ins` 目录即可，不联网、不写注册表、不改任何插件文件。
@@ -22,6 +24,24 @@ AE 27 给每个插件模块分配了**两种**文本编码模式之一：
 - Trapcode Shine / Starglow / 3DStroke / SoundKeys（GBK + 新式）在 27 里**残缺**——没人帮它转。
 
 这也是为什么"装一个 GBK→UTF-8 的修复插件"反而会把事情弄得更糟：方向搞反了。
+
+### 症状实拍
+
+| 截图 | 说明 |
+|---|---|
+| ![Geo 参数名为正常中文](docs/images/geo-params-cjk.png) | **修复后的样子**：Geo 的参数名是正常中文（`几何体` `材质` `克隆` `计数X` …）。右上角那串蓝色小字是 Maxon 的授权提示链接，不属于参数名，见[第 7 节](#7-已知限制) |
+| ![Universe 参数名整排空白](docs/images/universe-blank-labels.png) | **方向搞反 / 白名单太宽时**：参数名整排空白，只剩数值（`0.80`、`1.00`、`0.3`…），根本不知道在调什么 |
+| ![Adobe 渐变擦除参数名为空](docs/images/adobe-blank-labels.png) | 同一个错误也会波及 Adobe 自带效果，连"渐变擦除"都变得没法用 |
+| ![Maxon 授权链接放大](docs/images/maxon-license-link.png) | 放大看那串蓝色链接：点它会启动 Maxon App 授权。它由 Maxon 运行库绘制，不走 `PF_ParamDef`，插件层够不到 |
+
+对照数据（修复前 → 修复后，取自 AE 26 基准比对）：
+
+| 参数 | 修复前 AE 27 | 修复后 AE 27 | AE 26 |
+|---|---|---|---|
+| `几何体` | `鐎瑰簲` 类乱码 | `几何体` | `几何体` |
+| `通道`（SoundKeys） | `ͨ`（截断） | `通道` | `通道` |
+| `预设`（Shine） | `Ԥ`（截断） | `预设` | `预设` |
+| Universe 全部参数 | 空白 | `阈值` `辉光半径` `半径X` … | 同左 |
 
 ## 2. 这个插件做什么
 
@@ -125,4 +145,5 @@ build\build.cmd
 - 派生自 [AdoreLowen/AE-UTF8-Fixer](https://github.com/AdoreLowen/AE-UTF8-Fixer)（MIT），复用了其 AEGP 挂钩骨架与参数结构定义
 - [MinHook](https://github.com/TsudaKageyu/minhook)（BSD 2-Clause），静态链接
 - After Effects SDK 头文件不随本仓库分发，请自行从 Adobe 获取
+
 
