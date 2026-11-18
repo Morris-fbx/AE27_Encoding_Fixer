@@ -1,0 +1,14 @@
+# build scratch
+build/obj/
+third_party/
+
+# link by-products
+dist/*.lib
+dist/*.exp
+dist/*.pdb
+dist/*.ilk
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store
