@@ -63,3 +63,25 @@ Aquon                     45 names    OK
 | 早期版本漏了 **Shine / Starglow / 3DStroke / SoundKeys** | `路径` → `·`、`预设` → `Ԥ`（截断） | 它们是"新式 + GBK"，需要反方向（ANSI → UTF-8） |
 
 这三条就是"按厂商白名单"改成"按模块 + 按方向"的直接原因。
+
+## BCC（Boris Continuum Complete）
+
+BCC 2025 版自带 UTF-8 中文，属"老式模块 + UTF-8"，与 Trapcode 同一类问题。
+
+| 效果 | AE 26 名字数 | AE 27 差异 | 备注 |
+|---|---|---|---|
+| BCC+Glow Darks | 218 | 0 | 入口 `PluginMain` |
+| BCC+Glow | 293 | 0 | 入口 `PluginMain` |
+| BCC+Glow Edges | 280 | 0 | 入口 `PluginMain` |
+| BCC+Blur | 268 | 0 | 入口 `PluginMain` |
+| BCC+Looks | 281 | 0 | 入口 `PluginMain` |
+| BCC+Colorize Glow | 214 | 0 | 入口 `main`（经典系列） |
+| BCC Blur（经典） | 90 | 0 | 入口 `main`（经典系列） |
+
+合计 **1644 个名字，0 处差异**（2026-11-24 实机验证）。
+
+两个踩坑点，都已修：
+
+1. 规则加了 `\borisfx\continuum` 仍然乱码 → 因为只挂钩 `EntryPointFunc` / `EffectMain`，
+   而 BCC+ 用 `PluginMain`、经典 BCC 只导出 `main`，整片 BCC 从未被钩到；
+2. 经典 BCC 的 `main` 导出不在少数（`BCCBlur.aex`、`BCCColorizeGlow.aex` 等），需要单独覆盖。
