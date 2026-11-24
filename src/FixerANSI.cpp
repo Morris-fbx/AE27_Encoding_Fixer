@@ -41,6 +41,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_set>
+#include <vector>
 
 #include "MinHook.h"
 
@@ -540,12 +541,93 @@ constexpr ModuleRule kRules[] = {
     { L"\\trapcode\\echospace",   Direction::Utf8ToAnsi },
     { L"\\trapcode\\horizon",     Direction::Utf8ToAnsi },
 
+    /* BCC（Boris Continuum Complete）：新版自带 UTF-8 中文，同样是老式模块，
+     * AE 27 会再转一次，所以整目录走 UTF-8 → ANSI。
+     * 实测 7 个效果、1473 个含中文的属性名，全部可被 CP936 表示。 */
+    { L"\\borisfx\\continuum",    Direction::Utf8ToAnsi },
+
     /* 新式模块却自带 ANSI 文本：AE 直接把字节当 UTF-8，所以要升成 UTF-8。 */
     { L"\\trapcode\\shine",       Direction::GbkToUtf8 },
     { L"\\trapcode\\starglow",    Direction::GbkToUtf8 },
     { L"\\trapcode\\3dstroke",    Direction::GbkToUtf8 },
     { L"\\trapcode\\soundkeys",   Direction::GbkToUtf8 },
 };
+
+/* --- 外置规则文件 -------------------------------------------------------
+ * 与 .aex 同目录的 AECharsetFixer.rules.txt（可选）用来补充或覆盖上面的表，
+ * 这样新增厂商不需要重新编译。格式：
+ *
+ *   # 注释
+ *   U2A \borisfx\continuum      # 老式模块 + UTF-8 文本：UTF-8 -> ANSI
+ *   G2U \somevendor\modern      # 新式模块 + ANSI 文本：ANSI -> UTF-8
+ *
+ * 路径片段会转成小写后做子串匹配；文件规则优先于内置表。 */
+struct FileRule {
+    std::wstring fragment;
+    Direction direction;
+};
+
+const std::vector<FileRule>& FileRules() {
+    static const std::vector<FileRule> rules = [] {
+        std::vector<FileRule> parsed;
+
+        wchar_t modulePath[MAX_PATH]{};
+        HMODULE self = nullptr;
+        if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                                GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                                reinterpret_cast<LPCWSTR>(&FileRules), &self) || !self) {
+            return parsed;
+        }
+        if (GetModuleFileNameW(self, modulePath, MAX_PATH) == 0) return parsed;
+
+        std::wstring path(modulePath);
+        const size_t slash = path.find_last_of(L"\\/");
+        if (slash == std::wstring::npos) return parsed;
+        path.resize(slash + 1);
+        path += L"AECharsetFixer.rules.txt";
+
+        FILE* file = nullptr;
+        if (_wfopen_s(&file, path.c_str(), L"rb") != 0 || !file) {
+            Log("规则文件未找到：%ls", path.c_str());
+            return parsed;
+        }
+
+        char line[1024];
+        while (fgets(line, sizeof(line), file)) {
+            char* cursor = line;
+            if (cursor[0] == '\xEF' && cursor[1] == '\xBB' && cursor[2] == '\xBF') cursor += 3;
+            while (*cursor == ' ' || *cursor == '\t') ++cursor;
+            if (*cursor == 0 || *cursor == '#' || *cursor == ';' ||
+                *cursor == '\r' || *cursor == '\n') {
+                continue;
+            }
+
+            char kind[8]{};
+            char fragment[512]{};
+            if (sscanf_s(cursor, "%7s %511[^\r\n]", kind, static_cast<unsigned int>(sizeof(kind)),
+                         fragment, static_cast<unsigned int>(sizeof(fragment))) < 2) {
+                continue;
+            }
+
+            Direction direction = Direction::None;
+            if (_stricmp(kind, "U2A") == 0) {
+                direction = Direction::Utf8ToAnsi;
+            } else if (_stricmp(kind, "G2U") == 0) {
+                direction = Direction::GbkToUtf8;
+            }
+            if (direction == Direction::None) continue;
+
+            wchar_t wide[512]{};
+            if (MultiByteToWideChar(CP_UTF8, 0, fragment, -1, wide, 512) <= 0) continue;
+            CharLowerBuffW(wide, static_cast<DWORD>(wcslen(wide)));
+            parsed.push_back(FileRule{ wide, direction });
+        }
+        fclose(file);
+        Log("规则文件载入 %d 条：%ls", static_cast<int>(parsed.size()), path.c_str());
+        return parsed;
+    }();
+    return rules;
+}
 
 bool MatchesSemicolonList(const std::wstring& path, const wchar_t* list, Direction direction,
                           Direction* out) noexcept {
@@ -580,6 +662,10 @@ Direction DirectionForModule(const std::wstring& lowerPath) noexcept {
 
     if (MatchesSemicolonList(lowerPath, gbkList, Direction::GbkToUtf8, &result)) return result;
     if (MatchesSemicolonList(lowerPath, ansiList, Direction::Utf8ToAnsi, &result)) return result;
+
+    for (const FileRule& rule : FileRules()) {
+        if (lowerPath.find(rule.fragment) != std::wstring::npos) return rule.direction;
+    }
 
     for (const ModuleRule& rule : kRules) {
         if (lowerPath.find(rule.pathFragment) != std::wstring::npos) return rule.direction;
@@ -643,7 +729,12 @@ void HookModule(HMODULE module, const std::wstring& modulePath) noexcept {
 
     for (DWORD i = 0; i < exports->NumberOfNames; ++i) {
         const char* name = reinterpret_cast<const char*>(base + names[i]);
-        if (strcmp(name, "EntryPointFunc") != 0 && strcmp(name, "EffectMain") != 0) continue;
+        /* 三种入口名都要认：AE 自己的例子用 EntryPointFunc/EffectMain，
+         * BCC 这类第三方用 PluginMain，只认前两个会整片漏钩。 */
+        if (strcmp(name, "EntryPointFunc") != 0 && strcmp(name, "EffectMain") != 0 &&
+            strcmp(name, "PluginMain") != 0) {
+            continue;
+        }
 
         void* target = reinterpret_cast<void*>(base + functions[ordinals[i]]);
 
@@ -765,5 +856,6 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     }
     return TRUE;
 }
+
 
 

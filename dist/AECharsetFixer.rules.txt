@@ -1,0 +1,23 @@
+# AECharsetFixer 规则文件（可选）
+#
+# 放在 !00_AE27CharsetFixer.aex 同一个目录下即可生效，改完重启 AE。
+# 这里写的规则优先于插件内置的模块表；环境变量 AEUTF8FIXER_ANSI / AEUTF8FIXER_GBK 优先于本文件。
+#
+# 语法：每行一条，方向 + 路径片段（片段转小写后做子串匹配）
+#
+#   U2A \厂商\插件目录    老式模块 + 自带 UTF-8 文本 → UTF-8 转 ANSI
+#   G2U \厂商\插件目录    新式模块 + 自带 ANSI 文本 → ANSI 转 UTF-8
+#
+# 判断方法（用 26 和 27 各跑一次 tools/family_probe.jsx 比对）：
+#   * 27 显示成「鏁堟灉」这类怪字（UTF-8 被当 GBK 解）→ 该模块要 U2A
+#   * 27 里参数名被截断/空白，26 里正常                → 该模块要 G2U
+#   * 两边完全一样                                      → 不用写
+#
+# 内置已覆盖：
+#   U2A  \trapcode\geo \form \particular \tao \mir \lux \echospace \horizon
+#   U2A  \borisfx\continuum            （BCC / Boris Continuum Complete）
+#   G2U  \trapcode\shine \starglow \3dstroke \soundkeys
+#
+# 示例（去掉行首的 # 即可启用）：
+# U2A \somevendor\legacyeffects
+# G2U \somevendor\moderneffects

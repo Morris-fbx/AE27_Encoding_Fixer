@@ -35,6 +35,9 @@
         ['MB Colorista',            'RG MB COLORISTA IV'],
         ['Universe ChromaticGlow',  'Universe_Glow_Chromatic_Glow'],
         ['Boris BCC3Blur',          'BCC3Blur'],
+        ['BCC+Glow Darks',          'BCC_GLOWDARKS'],
+        ['BCC+Glow',                'BCC_GLOW'],
+        ['BCC+Blur',                'BCC_BLUR'],
         ['Sapphire S_Glow',         'S_Glow'],
         ['PluginEverything DeepGlow2', 'PEDG2'],
         ['Aquon',                   'Aquon']
@@ -121,3 +124,4 @@
         alert('写入失败：' + file.fsName);
     }
 })();
+

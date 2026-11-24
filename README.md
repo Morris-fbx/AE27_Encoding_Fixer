@@ -4,7 +4,7 @@
 
 > 让 After Effects **2027** 里红巨星（Maxon / Trapcode）效果的中文参数名，恢复成和 **AE 2026** 一模一样。
 
-产物只有一个文件：**`dist/!00_AE27CharsetFixer.aex`**。拷进 AE 27 的 `Plug-ins` 目录即可，不联网、不写注册表、不改任何插件文件。
+当前版本 **v1.1.0**（新增 BCC / Boris Continuum 支持，更新记录见 [docs/CHANGELOG.md](docs/CHANGELOG.md)）。产物只有一个文件：**`dist/!00_AE27CharsetFixer.aex`**。拷进 AE 27 的 `Plug-ins` 目录即可，不联网、不写注册表、不改任何插件文件。
 
 ---
 
@@ -29,7 +29,7 @@ AE 27 给每个插件模块分配了**两种**文本编码模式之一：
 
 | 截图 | 说明 |
 |---|---|
-| ![Geo 参数名为正常中文](docs/images/geo-params-cjk.png) | **修复后的样子**：Geo 的参数名是正常中文（`几何体` `材质` `克隆` `计数X` …）。右上角那串蓝色小字是 Maxon 的授权提示链接，不属于参数名，见[第 7 节](#7-已知限制) |
+| ![Geo 参数名为正常中文](docs/images/geo-params-cjk.png) | **修复后的样子**：Geo 的参数名是正常中文（`几何体` `材质` `克隆` `计数X` …）。右上角那串蓝色小字是 Maxon 的授权提示链接，不属于参数名，见[第 8 节](#8-已知限制) |
 | ![Universe 参数名整排空白](docs/images/universe-blank-labels.png) | **方向搞反 / 白名单太宽时**：参数名整排空白，只剩数值（`0.80`、`1.00`、`0.3`…），根本不知道在调什么 |
 | ![Adobe 渐变擦除参数名为空](docs/images/adobe-blank-labels.png) | 同一个错误也会波及 Adobe 自带效果，连"渐变擦除"都变得没法用 |
 | ![Maxon 授权链接放大](docs/images/maxon-license-link.png) | 放大看那串蓝色链接：点它会启动 Maxon App 授权。它由 Maxon 运行库绘制，不走 `PF_ParamDef`，插件层够不到 |
@@ -45,11 +45,11 @@ AE 27 给每个插件模块分配了**两种**文本编码模式之一：
 
 ## 2. 这个插件做什么
 
-一个 AEGP 插件，在 AE 启动时挂钩每个**白名单模块**的 `EntryPointFunc` / `EffectMain`，在该模块自己的调用链里把参数字符串按需要的方向转一次：
+一个 AEGP 插件，在 AE 启动时挂钩每个**白名单模块**的 `EntryPointFunc` / `EffectMain` / `PluginMain`，在该模块自己的调用链里把参数字符串按需要的方向转一次：
 
 ```
-老式 + UTF-8 文本   →   UTF-8 → ANSI     （Geo / Form / Particular / Tao / Mir / Lux / Echospace / Horizon）
-新式 + ANSI 文本    →   ANSI  → UTF-8    （Shine / Starglow / 3DStroke / SoundKeys）
+老式 + UTF-8 文本   →   UTF-8 → ANSI     （Trapcode Geo/Form/Particular/Tao/Mir/Lux/Echospace/Horizon、BCC 全系）
+新式 + ANSI 文本    →   ANSI  → UTF-8    （Trapcode Shine / Starglow / 3DStroke / SoundKeys）
 其它模块            →   完全不碰
 ```
 
@@ -97,7 +97,31 @@ AE 2026 是 UTF-8 宿主，用原版 [AE-UTF8-Fixer](https://github.com/AdoreLow
 
 **22 个效果、约 6900 个参数名，0 处差异。** 复现方法见 [`tools/`](tools) 与 [`docs/VERIFICATION.md`](docs/VERIFICATION.md)。
 
-## 5. 环境变量（可选）
+Boris Continuum（BCC）单独说明：它 2025 版自带 UTF-8 中文，属"老式模块 + UTF-8"，实测 7 个效果（BCC+Glow / Glow Darks / Glow Edges / Blur / Looks / Colorize Glow / BCC Blur 经典）共 1473 个含中文的属性名，在 AE 27 里全部呈 `鏁堟灉` 型乱码；这 1473 个名字 **100% 可被 CP936 表示**，因此整目录 `U2A` 可以完全还原。
+
+## 5. 外置规则文件（新增厂商不用重新编译）
+
+与 `.aex` 同目录放一个 `AECharsetFixer.rules.txt`（可选），改完重启 AE 生效：
+
+```
+# 每行一条：方向 + 路径片段（转小写后做子串匹配）
+U2A \somevendor\legacyeffects      # 老式模块 + UTF-8 文本
+G2U \somevendor\moderneffects      # 新式模块 + ANSI 文本
+```
+
+优先级：环境变量 > 规则文件 > 内置表。文件里没有命中时仍走内置表。
+
+怎么判断某个厂商该写哪边——用 `tools/family_probe.jsx` 在 26 和 27 各跑一次比对：
+
+| 27 的表现 | 结论 | 该写 |
+|---|---|---|
+| `鏁堟灉` 这类怪字（UTF-8 被当 GBK 解） | 老式模块自带 UTF-8 | `U2A` |
+| 参数名截断/空白，26 里正常 | 新式模块自带 ANSI | `G2U` |
+| 与 26 完全一致 | 不用管 | 不写 |
+
+BCC 就是这么加进来的：AE 26 显示正常、AE 27 显示 `鏁堟灉棰勮...`，1473 个含中文的参数名全部可被 CP936 表示，所以整目录 `U2A`。
+
+## 6. 环境变量（可选）
 
 需要覆盖白名单里的模块时，启动 AE 前设置：
 
@@ -116,7 +140,7 @@ $env:AEUTF8FIXER_GBK  = '\trapcode\shine'
 $env:AEUTF8FIXER_LOG = '1'      # 写 %TEMP%\AECharsetFixer.log
 ```
 
-## 6. 从源码构建
+## 7. 从源码构建
 
 依赖两样外部资源，放到 `third_party/` 或设置环境变量：
 
@@ -133,17 +157,19 @@ build\build.cmd
 
 产物在 `dist\!00_AE27CharsetFixer.aex`。MinHook 会用 `/MT` 单独编一份，避免与 `/MD` 运行库冲突。
 
-## 7. 已知限制
+## 8. 已知限制
 
 - **只处理参数名/弹窗项/复选项名/滑块描述**。红巨星"未授权"的蓝色链接文字（点它启动 Maxon App）由 Maxon 运行库绘制，不走 PF 参数，本插件够不到——把授权弄正常它就不显示了；
 - 若某个插件名只在**模块加载时**（`PF_Cmd_PARAMS_SETUP`）传给 AE，而本插件加载得更晚，那部分名字无法补转（AE 的 AEGP 总在效果插件之后加载）；对表格里的模块实测没有这个问题；
 - 白名单是"按模块路径"的，红巨星以后改目录结构需要更新 `src/FixerANSI.cpp` 里的 `kRules`。
 
-## 8. 许可与致谢
+## 9. 许可与致谢
 
 - 本项目：MIT（见 [LICENSE](LICENSE)）
 - 派生自 [AdoreLowen/AE-UTF8-Fixer](https://github.com/AdoreLowen/AE-UTF8-Fixer)（MIT），复用了其 AEGP 挂钩骨架与参数结构定义
 - [MinHook](https://github.com/TsudaKageyu/minhook)（BSD 2-Clause），静态链接
 - After Effects SDK 头文件不随本仓库分发，请自行从 Adobe 获取
+
+
 
 

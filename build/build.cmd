@@ -78,7 +78,7 @@ popd
 
 rem ---- 3) compile ------------------------------------------------------
 echo [3/5] compile
-cl /nologo /c /std:c++20 /EHsc /O2 /MT /W4 /permissive- ^
+cl /nologo /c /std:c++20 /EHsc /O2 /MT /W4 /permissive- /utf-8 ^
    /D_CRT_SECURE_NO_WARNINGS /DMSWindows /DWIN32 /D_WINDOWS ^
    %INCLUDES% "%ROOT%\src\FixerANSI.cpp" /Fo"%BUILD%\fixer.obj" || goto :fail
 
@@ -99,5 +99,6 @@ exit /b 0
 echo BUILD FAILED
 endlocal
 exit /b 1
+
 
 
