@@ -729,10 +729,11 @@ void HookModule(HMODULE module, const std::wstring& modulePath) noexcept {
 
     for (DWORD i = 0; i < exports->NumberOfNames; ++i) {
         const char* name = reinterpret_cast<const char*>(base + names[i]);
-        /* 三种入口名都要认：AE 自己的例子用 EntryPointFunc/EffectMain，
-         * BCC 这类第三方用 PluginMain，只认前两个会整片漏钩。 */
+        /* 四种入口名都要认：AE 自带例子用 EntryPointFunc / EffectMain，
+         * BCC+ 用 PluginMain，经典 BCC 只导出 main。
+         * 只认前两个会整片漏钩（BCC 就是这么被漏掉的）。 */
         if (strcmp(name, "EntryPointFunc") != 0 && strcmp(name, "EffectMain") != 0 &&
-            strcmp(name, "PluginMain") != 0) {
+            strcmp(name, "PluginMain") != 0 && strcmp(name, "main") != 0) {
             continue;
         }
 

@@ -9,9 +9,9 @@ BCC 2025 版开始自带 UTF-8 中文，但 AE 27 对它的处理方式与 Trapc
 - 规则表新增 `\borisfx\continuum` → `U2A`（UTF-8 → ANSI），覆盖 `MediaCore\BorisFX\Continuum` 下全部模块；
 - 实测 7 个效果（BCC+Glow / Glow Darks / Glow Edges / Blur / Looks / Colorize Glow、以及经典 BCC Blur）共 1473 个含中文的属性名，**100% 可被 CP936 表示**，转换不会中途放弃。
 
-**修复：`PluginMain` 入口漏钩**
+**修复：BCC 的入口名漏钩（`PluginMain` / `main`）**
 
-原来只挂钩 `EntryPointFunc` 和 `EffectMain` 两种导出名。BCC 的 190 个模块用的是 `PluginMain`，导致整片 BCC 从未进入转换流程——这是 BCC 第一次加规则后仍然乱码的真正原因。现在三种入口名都认。
+原来只挂钩 `EntryPointFunc` 和 `EffectMain` 两种导出名。BCC+ 系列 190 个模块用 `PluginMain`，经典 BCC 模块（`BCCBlur.aex`、`BCCColorizeGlow.aex` 等）只导出 `main`，两者都不在原来的识别列表里，导致整片 BCC 从未进入转换流程——这是第一次加规则后仍然乱码的真正原因。现在 `EntryPointFunc` / `EffectMain` / `PluginMain` / `main` 四种入口名都认。
 
 **新增：外置规则文件**
 
